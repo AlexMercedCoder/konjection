@@ -31,44 +31,103 @@ const configDefault = {
 };
 
 const konject = (config = configDefault) => {
+  ////////////////////
+  // knex and Model
+  ////////////////////
   const knex = Knex(config.knex);
 
   Model.knex(knex);
 
-  konjectModel = (tableName) => {
+  ////////////////////
+  // konjectModel
+  ////////////////////
+
+  konjectModel = (tableName, modelConfig = {}) => {
+    const { relationships = null } = modelConfig;
+    ////////////////////
+    // TheModel
+    ////////////////////
     class TheModel extends Model {
       static get tableName() {
         return tableName;
       }
+
+      static get relationMappings() {
+        if (relationships) {
+          return relationships();
+        } else {
+          return {};
+        }
+      }
     }
 
-    model = {
-      all: async () => {
-        const all = await TheModel.query().select();
-        return all;
-      },
-      one: async (id) => {
-        const all = await TheModel.query().select().where({ id });
-        return all;
-      },
-      create: async (newModel) => {
-        const all = await TheModel.query().insert(newModel);
-        return all;
-      },
-      update: async (id, update) => {
-        const all = await TheModel.query().where({ id }).update(update);
-        return all;
-      },
-      destroy: async (id) => {
-        const all = await TheModel.query().where({ id }).del();
-        return all;
-      },
+    ////////////////////
+    // model funcs
+    ////////////////////
+
+    TheModel.all = async () => {
+      const all = await TheModel.query().select();
+      return all;
     };
 
-    return [TheModel, model];
+    TheModel.one = async (id) => {
+      const all = await TheModel.query().select().where({ id });
+      return all;
+    };
+
+    TheModel.create = async (newModel) => {
+      const all = await TheModel.query().insert(newModel);
+      return all;
+    };
+
+    TheModel.update = async (id, update) => {
+      const all = await TheModel.query().where({ id }).update(update);
+      return all;
+    };
+
+    TheModel.destroy = async (id) => {
+      const all = await TheModel.query().where({ id }).del();
+      return all;
+    };
+
+    TheModel.related = async (id, rel, query = {}) => {
+      const result = await TheModel.relatedQuery(rel).for(id).where(query);
+      return result;
+    };
+
+    TheModel.relate = async (source, target, rel) => {
+      const result = await TheModel.relatedQuery(rel)
+        .for(source)
+        .relate(target);
+    };
+
+    return TheModel;
   };
 
-  return [knex, Model, konjectModel];
+  ////////////////////
+  // MAKER
+  ////////////////////
+
+  const maker = {
+    createTable: async (name, callback) => {
+      await knex.schema.h;
+      knex.schema.hasTable(name).then(function (exists) {
+        if (!exists) {
+          return knex.schema.createTable(name, callback);
+        } else {
+          console.log(`${name} table already exists`);
+        }
+      });
+    },
+    dropTable: async (name) => {
+      await knex.schema.dropTable(name);
+    },
+    alterTable: async (name, callback) => {
+      await knex.schema.alterTable(name, callback);
+    },
+  };
+
+  return [knex, Model, konjectModel, maker];
 };
 
 module.exports = konject;
